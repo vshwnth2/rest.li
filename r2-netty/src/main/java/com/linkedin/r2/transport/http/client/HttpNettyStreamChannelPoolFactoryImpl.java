@@ -1,0 +1,87 @@
+package com.linkedin.r2.transport.http.client;
+
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import java.net.SocketAddress;
+import java.util.concurrent.ScheduledExecutorService;
+
+class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
+{
+  private final Bootstrap _bootstrap;
+  private final int _maxPoolSize;
+  private final long _idleTimeout;
+  private final int _maxPoolWaiterSize;
+  private final AsyncPoolImpl.Strategy _strategy;
+  private final int _minPoolSize;
+  private final boolean _tcpNoDelay;
+  private final ChannelGroup _allChannels;
+  private final ScheduledExecutorService _scheduler;
+  private final long _requestTimeout;
+  private final int _maxConcurrentConnections;
+
+  HttpNettyStreamChannelPoolFactoryImpl(int maxPoolSize,
+                                        long idleTimeout,
+                                        int maxPoolWaiterSize,
+                                        AsyncPoolImpl.Strategy strategy,
+                                        int minPoolSize,
+                                        boolean tcpNoDelay,
+                                        ScheduledExecutorService scheduler,
+                                        long requestTimeout,
+                                        int maxConcurrentConnections,
+                                        SSLContext sslContext,
+                                        SSLParameters sslParameters,
+                                        int maxHeaderSize,
+                                        int maxChunkSize,
+                                        long maxResponseSize,
+                                        EventLoopGroup eventLoopGroup)
+  {
+    ChannelInitializer<NioSocketChannel> initializer =
+      new RAPClientPipelineInitializer(sslContext, sslParameters, maxHeaderSize, maxChunkSize, maxResponseSize);
+
+    Bootstrap bootstrap = new Bootstrap().group(eventLoopGroup)
+      .channel(NioSocketChannel.class)
+      .handler(initializer);
+
+    _bootstrap = bootstrap;
+    _maxPoolSize = maxPoolSize;
+    _idleTimeout = idleTimeout;
+    _maxPoolWaiterSize = maxPoolWaiterSize;
+    _strategy = strategy;
+    _minPoolSize = minPoolSize;
+    _tcpNoDelay = tcpNoDelay;
+    _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
+    _scheduler = scheduler;
+    _requestTimeout = requestTimeout;
+    _maxConcurrentConnections = maxConcurrentConnections;
+  }
+
+  @Override
+  public AsyncPool<Channel> getPool(SocketAddress address)
+  {
+    return new AsyncPoolImpl<>(address.toString() + " HTTP connection pool",
+      new ChannelPoolLifecycle(address,
+        _bootstrap,
+        _allChannels,
+        _tcpNoDelay),
+      _maxPoolSize,
+      _idleTimeout,
+      _scheduler,
+      _maxPoolWaiterSize,
+      _strategy,
+      _minPoolSize,
+      new ExponentialBackOffRateLimiter(0,
+        _requestTimeout / 2,
+        Math.max(10, _requestTimeout / 32),
+        _scheduler,
+        _maxConcurrentConnections)
+    );
+  }
+}

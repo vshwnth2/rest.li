@@ -37,11 +37,11 @@ import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.common.bridge.common.TransportCallback;
 import com.linkedin.r2.transport.common.bridge.common.TransportResponseImpl;
 import com.linkedin.r2.transport.http.common.HttpBridge;
-import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
-import io.netty.util.concurrent.GlobalEventExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -52,8 +52,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Abstract stream based abstract class implementation of {@link TransportClient} on top of Netty
@@ -74,8 +72,6 @@ abstract class AbstractNettyStreamClient implements TransportClient
 
   private static final int HTTP_DEFAULT_PORT = 80;
   private static final int HTTPS_DEFAULT_PORT = 443;
-
-  protected final ChannelGroup _allChannels;
 
   protected final AtomicReference<State> _state = new AtomicReference<State>(State.RUNNING);
 
@@ -123,7 +119,6 @@ abstract class AbstractNettyStreamClient implements TransportClient
     _shutdownTimeout = shutdownTimeout;
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = jmxManager;
-    _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
   }
 
   /* Constructor for test purpose ONLY. */
@@ -141,7 +136,6 @@ abstract class AbstractNettyStreamClient implements TransportClient
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = AbstractJmxManager.NULL_JMX_MANAGER;
     _maxConcurrentConnections = Integer.MAX_VALUE;
-    _allChannels = new DefaultChannelGroup("R2 client channels", GlobalEventExecutor.INSTANCE);
   }
 
   /**
@@ -213,8 +207,8 @@ abstract class AbstractNettyStreamClient implements TransportClient
     // of the code access to the unwrapped callback.  This ensures two things:
     // 1. The user callback will always be invoked, since the Timeout will eventually expire
     // 2. The user callback is never invoked more than once
-    final TimeoutTransportCallback<StreamResponse> timeoutCallback =
-        new TimeoutTransportCallback<StreamResponse>(_scheduler,
+    final TimeoutTransportCallbackImpl<StreamResponse> timeoutCallback =
+        new TimeoutTransportCallbackImpl<StreamResponse>(_scheduler,
             _requestTimeout,
             TimeUnit.MILLISECONDS,
             executionCallback,

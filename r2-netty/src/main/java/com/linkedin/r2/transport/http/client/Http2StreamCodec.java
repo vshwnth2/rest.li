@@ -36,7 +36,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http2.Http2CodecUtil;
 import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -47,12 +46,13 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
 import io.netty.util.concurrent.PromiseCombiner;
-import java.util.Collections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.AbstractMap;
+import java.util.Collections;
+
 import static io.netty.handler.codec.http2.Http2CodecUtil.getEmbeddedHttp2Exception;
-import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 
 
 /**
@@ -138,6 +138,12 @@ class Http2StreamCodec extends Http2ConnectionHandler
     Http2Connection.PropertyKey handleKey =
         ctx.channel().attr(Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY).get();
     connection().stream(streamId).setProperty(handleKey, handle);
+
+    if (callback instanceof Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2)
+    {
+      Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2 callbackConnectionAware = (Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2) callback;
+      callbackConnectionAware.setConnection(new AbstractMap.SimpleImmutableEntry<>(ctx.channel(), connection().stream(streamId)));
+    }
   }
 
   @Override

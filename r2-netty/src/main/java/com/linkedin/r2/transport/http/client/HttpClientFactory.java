@@ -22,9 +22,9 @@ import com.linkedin.common.callback.Callback;
 import com.linkedin.common.callback.MultiCallback;
 import com.linkedin.common.util.None;
 import com.linkedin.r2.disruptor.DisruptFilter;
+import com.linkedin.r2.filter.CompressionConfig;
 import com.linkedin.r2.filter.FilterChain;
 import com.linkedin.r2.filter.FilterChains;
-import com.linkedin.r2.filter.CompressionConfig;
 import com.linkedin.r2.filter.compression.ClientCompressionFilter;
 import com.linkedin.r2.filter.compression.ClientCompressionHelper;
 import com.linkedin.r2.filter.compression.ClientStreamCompressionFilter;
@@ -43,33 +43,31 @@ import com.linkedin.r2.transport.common.bridge.common.TransportCallback;
 import com.linkedin.r2.transport.http.common.HttpProtocolVersion;
 import com.linkedin.r2.util.ConfigValueExtractor;
 import com.linkedin.r2.util.NamedThreadFactory;
-
 import io.netty.channel.nio.NioEventLoopGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * A factory for HttpNettyClient instances.
- *
+ * <p>
  * All clients created by the factory will share the same resources, in particular the
  * {@link io.netty.channel.nio.NioEventLoopGroup} and {@link ScheduledExecutorService}.
- *
+ * <p>
  * In order to shutdown cleanly, all clients issued by the factory should be shutdown via
  * {@link TransportClient#shutdown(com.linkedin.common.callback.Callback)} and the factory
  * itself should be shut down via one of the following two methods:
@@ -79,7 +77,7 @@ import org.slf4j.LoggerFactory;
  * {@link #shutdown(com.linkedin.common.callback.Callback, long, java.util.concurrent.TimeUnit)}
  * </li>
  * </ul>
- *
+ * <p>
  * See the method descriptions for more details. Note that factory shutdown and shutdown
  * of the clients can be initiated in any order.
  *
@@ -912,42 +910,38 @@ public class HttpClientFactory implements TransportClientFactory
         chooseNewOverDefault(getHttpProtocolVersion(properties, HTTP_PROTOCOL_VERSION), _defaultHttpVersion);
 
     TransportClient streamClient;
+
+    ChannelPoolManagerBuilder channelPoolManagerBuilder = new ChannelPoolManagerBuilder(_eventLoopGroup, _executor);
+    channelPoolManagerBuilder.setMaxPoolSize(poolSize).setRequestTimeout(requestTimeout).setIdleTimeout(idleTimeout)
+      .setShutdownTimeout(shutdownTimeout).setMaxResponseSize(maxResponseSize).setSSLContext(sslContext)
+      .setPoolWaiterSize(poolWaiterSize)
+      .setSSLParameters(sslParameters).setJmxManager(_jmxManager).setStrategy(strategy).setMinPoolSize(poolMinSize)
+      .setMaxHeaderSize(maxHeaderSize).setMaxChunkSize(maxChunkSize).setMaxConcurrentConnections(maxConcurrentConnections)
+      .setTcpNoDelay(_tcpNoDelay);
+
     switch (httpProtocolVersion)
     {
       case HTTP_1_1:
-        streamClient = new HttpNettyStreamClient(_eventLoopGroup, _executor, poolSize, requestTimeout, idleTimeout, shutdownTimeout,
-            maxResponseSize, sslContext, sslParameters, _callbackExecutorGroup, poolWaiterSize,
-            clientName + "-Stream" /* to distinguish channel pool metrics from rest client during transition period */,
-            _jmxManager, strategy, poolMinSize, maxHeaderSize, maxChunkSize, maxConcurrentConnections, _tcpNoDelay);
+        streamClient = new HttpNettyStreamClient(_eventLoopGroup, _executor, requestTimeout, shutdownTimeout,
+          maxResponseSize, _callbackExecutorGroup,
+          _jmxManager, maxConcurrentConnections, channelPoolManagerBuilder.buildStream());
         break;
       case HTTP_2:
-        streamClient = new Http2NettyStreamClient(_eventLoopGroup, _executor, requestTimeout, idleTimeout, shutdownTimeout,
-            maxResponseSize, sslContext, sslParameters, _callbackExecutorGroup, poolWaiterSize,
-            clientName + "-HTTP/2-Stream" /* to distinguish channel pool metrics from rest client during transition period */,
-            _jmxManager, maxHeaderSize, maxChunkSize, maxConcurrentConnections, _tcpNoDelay);
+        streamClient = new Http2NettyStreamClient(_eventLoopGroup, _executor, requestTimeout, shutdownTimeout,
+          maxResponseSize, _callbackExecutorGroup,
+          _jmxManager, maxConcurrentConnections, channelPoolManagerBuilder.buildHttp2Stream());
         break;
       default:
         throw new IllegalArgumentException("Unrecognized HTTP protocol version " + httpProtocolVersion);
     }
 
     HttpNettyClient legacyClient = new HttpNettyClient(_eventLoopGroup,
-        _executor,
-        poolSize,
-        requestTimeout,
-        idleTimeout,
-        shutdownTimeout,
-        (int)maxResponseSize,
-        sslContext,
-        sslParameters,
-        _callbackExecutorGroup,
-        poolWaiterSize,
-        clientName,
-        _jmxManager,
-        strategy,
-        poolMinSize,
-        maxHeaderSize,
-        maxChunkSize,
-        maxConcurrentConnections);
+            _executor,
+      channelPoolManagerBuilder.buildRest(),
+      requestTimeout,
+      shutdownTimeout,
+      _callbackExecutorGroup,
+      _jmxManager);
 
     return new MixedClient(legacyClient, streamClient);
   }
