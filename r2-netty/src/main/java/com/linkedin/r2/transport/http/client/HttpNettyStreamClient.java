@@ -108,8 +108,8 @@ import java.util.concurrent.TimeoutException;
       int maxConcurrentConnections,
       boolean tcpNoDelay)
   {
-    super(eventLoopGroup, executor, requestTimeout, shutdownTimeout, maxResponseSize, callbackExecutors,
-        jmxManager, maxConcurrentConnections);
+    super(eventLoopGroup, executor, requestTimeout, shutdownTimeout, callbackExecutors,
+        jmxManager);
 
     _channelPoolManager = new ChannelPoolManager(
       new HttpNettyStreamChannelPoolFactoryImpl(
@@ -120,7 +120,6 @@ import java.util.concurrent.TimeoutException;
         minPoolSize,
         tcpNoDelay,
         _scheduler,
-        requestTimeout,
         maxConcurrentConnections,
         sslContext,
         sslParameters,
@@ -137,13 +136,12 @@ import java.util.concurrent.TimeoutException;
                                ScheduledExecutorService executor,
                                long requestTimeout,
                                long shutdownTimeout,
-                               long maxResponseSize,
                                ExecutorService callbackExecutors,
                                AbstractJmxManager jmxManager,
-                               int maxConcurrentConnections, ChannelPoolManager channelPoolManager)
+                               ChannelPoolManager channelPoolManager)
   {
-    super(eventLoopGroup, executor, requestTimeout, shutdownTimeout, maxResponseSize, callbackExecutors,
-      jmxManager, maxConcurrentConnections);
+    super(eventLoopGroup, executor, requestTimeout, shutdownTimeout, callbackExecutors,
+      jmxManager);
     _channelPoolManager = channelPoolManager;
     _jmxManager.onProviderCreate(_channelPoolManager);
   }
@@ -155,7 +153,7 @@ import java.util.concurrent.TimeoutException;
       int shutdownTimeout,
       long maxResponseSize)
   {
-    super(factory, executor, requestTimeout, shutdownTimeout, maxResponseSize);
+    super(factory, executor, requestTimeout, shutdownTimeout);
     _channelPoolManager = new ChannelPoolManager(factory);
     _jmxManager.onProviderCreate(_channelPoolManager);
   }

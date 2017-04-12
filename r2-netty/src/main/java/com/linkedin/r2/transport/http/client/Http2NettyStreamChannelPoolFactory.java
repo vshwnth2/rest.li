@@ -29,14 +29,14 @@ class Http2NettyStreamChannelPoolFactory implements ChannelPoolFactory
     ScheduledExecutorService scheduler,
     SSLContext sslContext,
     SSLParameters sslParameters,
-    long requestTimeout,
+    long gracefulShutdownTimeout,
     int maxHeaderSize,
     int maxChunkSize,
     long maxResponseSize,
     EventLoopGroup eventLoopGroup)
   {
     ChannelInitializer<NioSocketChannel> initializer = new Http2ClientPipelineInitializer(
-      sslContext, sslParameters, scheduler, maxHeaderSize, maxChunkSize, maxResponseSize, requestTimeout);
+      sslContext, sslParameters, scheduler, maxHeaderSize, maxChunkSize, maxResponseSize, gracefulShutdownTimeout);
     Bootstrap bootstrap = new Bootstrap().group(eventLoopGroup)
       .channel(NioSocketChannel.class)
       .handler(initializer);

@@ -24,8 +24,7 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
   private final boolean _tcpNoDelay;
   private final ChannelGroup _allChannels;
   private final ScheduledExecutorService _scheduler;
-  private final long _requestTimeout;
-  private final int _maxConcurrentConnections;
+  private final int _maxConcurrentConnectionInitializations;
 
   HttpNettyStreamChannelPoolFactoryImpl(int maxPoolSize,
                                         long idleTimeout,
@@ -34,8 +33,7 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
                                         int minPoolSize,
                                         boolean tcpNoDelay,
                                         ScheduledExecutorService scheduler,
-                                        long requestTimeout,
-                                        int maxConcurrentConnections,
+                                        int maxConcurrentConnectionInitializations,
                                         SSLContext sslContext,
                                         SSLParameters sslParameters,
                                         int maxHeaderSize,
@@ -59,8 +57,7 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
     _tcpNoDelay = tcpNoDelay;
     _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
     _scheduler = scheduler;
-    _requestTimeout = requestTimeout;
-    _maxConcurrentConnections = maxConcurrentConnections;
+    _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
   }
 
   @Override
@@ -78,10 +75,10 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
       _strategy,
       _minPoolSize,
       new ExponentialBackOffRateLimiter(0,
-        _requestTimeout / 2,
-        Math.max(10, _requestTimeout / 32),
+        ChannelPoolLifecycle.MAX_PERIOD_BEFORE_RETRY_CONNECTIONS,
+        Math.max(10, ChannelPoolLifecycle.INITIAL_PERIOD_BEFORE_RETRY_CONNECTIONS),
         _scheduler,
-        _maxConcurrentConnections)
+        _maxConcurrentConnectionInitializations)
     );
   }
 }

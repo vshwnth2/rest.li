@@ -127,6 +127,12 @@ class Http2StreamCodec extends Http2ConnectionHandler
       throw new IllegalArgumentException("Request is neither StreamRequest or RestRequest");
     }
 
+    // Sets the request timeout this request is associated with as stream property to be retrieved later
+    long requestTimeout = ((RequestWithCallback) msg).getRequestTimeout();
+    Http2Connection.PropertyKey requestTimeoutKey =
+      ctx.channel().attr(Http2ClientPipelineInitializer.REQUEST_TIMEOUT_MS_ATTR_KEY).get();
+    connection().stream(streamId).setProperty(requestTimeoutKey, requestTimeout);
+
     // Sets TransportCallback as a stream property to be retrieved later
     TransportCallback<?> callback = ((RequestWithCallback)msg).callback();
     Http2Connection.PropertyKey callbackKey =

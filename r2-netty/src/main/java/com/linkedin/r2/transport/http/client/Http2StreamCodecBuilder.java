@@ -46,7 +46,6 @@ public class Http2StreamCodecBuilder extends AbstractHttp2ConnectionHandlerBuild
   private static final int INITIAL_HUFFMAN_DECODE_CAPACITY = 32;
 
   private long _maxContentLength = -1;
-  private long _streamingTimeout = -1;
   private long _gracefulShutdownTimeoutMillis = -1;
   private int _maxHeaderSize = -1;
   private ScheduledExecutorService _scheduler = null;
@@ -56,13 +55,6 @@ public class Http2StreamCodecBuilder extends AbstractHttp2ConnectionHandlerBuild
   {
     ObjectUtil.checkPositive(maxContentLength, "maxContentLength");
     _maxContentLength = maxContentLength;
-    return self();
-  }
-
-  public Http2StreamCodecBuilder streamingTimeout(long streamingTimeout)
-  {
-    ObjectUtil.checkPositive(streamingTimeout, "streamingTimeout");
-    _streamingTimeout = streamingTimeout;
     return self();
   }
 
@@ -145,7 +137,7 @@ public class Http2StreamCodecBuilder extends AbstractHttp2ConnectionHandlerBuild
     ObjectUtil.checkNotNull(_connection, "connection");
 
     Http2StreamCodec codec = new Http2StreamCodec(decoder, encoder, initialSettings);
-    super.frameListener(new Http2FrameListener(_scheduler, _connection, codec, _maxContentLength, _streamingTimeout));
+    super.frameListener(new Http2FrameListener(_scheduler, _connection, codec, _maxContentLength));
     super.gracefulShutdownTimeoutMillis(_gracefulShutdownTimeoutMillis);
 
     return codec;

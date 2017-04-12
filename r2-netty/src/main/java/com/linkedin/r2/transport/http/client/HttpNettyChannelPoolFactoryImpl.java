@@ -29,18 +29,16 @@ class HttpNettyChannelPoolFactoryImpl implements ChannelPoolFactory
   private final int _minPoolSize;
   private final ChannelGroup _allChannels;
   private final ScheduledExecutorService _scheduler;
-  private final long _requestTimeout;
-  private final int _maxConcurrentConnections;
+  private final int _maxConcurrentConnectionInitializations;
 
   HttpNettyChannelPoolFactoryImpl(int maxPoolSize, long idleTimeout, int maxPoolWaiterSize, AsyncPoolImpl.Strategy strategy,
-      int minPoolSize, EventLoopGroup eventLoopGroup, SSLContext sslContext, SSLParameters sslParameters, int maxHeaderSize,
-      int maxChunkSize, int maxResponseSize, ScheduledExecutorService scheduler, long requestTimeout, int maxConcurrentConnections)
+                                  int minPoolSize, EventLoopGroup eventLoopGroup, SSLContext sslContext, SSLParameters sslParameters, int maxHeaderSize,
+                                  int maxChunkSize, int maxResponseSize, ScheduledExecutorService scheduler, int maxConcurrentConnectionInitializations)
   {
 
     _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
     _scheduler = scheduler;
-    _requestTimeout = requestTimeout;
-    _maxConcurrentConnections = maxConcurrentConnections;
+    _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
     Bootstrap bootstrap = new Bootstrap().group(eventLoopGroup)
       .channel(NioSocketChannel.class)
       .handler(new HttpClientPipelineInitializer(sslContext, sslParameters, maxHeaderSize, maxChunkSize, maxResponseSize));
@@ -68,10 +66,10 @@ class HttpNettyChannelPoolFactoryImpl implements ChannelPoolFactory
       _strategy,
       _minPoolSize,
       new ExponentialBackOffRateLimiter(0,
-        _requestTimeout / 2,
-        Math.max(10, _requestTimeout / 32),
+        ChannelPoolLifecycle.MAX_PERIOD_BEFORE_RETRY_CONNECTIONS,
+        Math.max(10, ChannelPoolLifecycle.INITIAL_PERIOD_BEFORE_RETRY_CONNECTIONS),
         _scheduler,
-        _maxConcurrentConnections)
+        _maxConcurrentConnectionInitializations)
     );
   }
 

@@ -20,123 +20,133 @@ import io.netty.channel.nio.NioEventLoopGroup;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 
 /**
- * Convenient class for building {@link HttpNettyStreamClient} with reasonable default configs.
+ * Convenient class for building {@link ChannelPoolManager} with reasonable default configs.
  *
- * @author Ang Xu
- * @version $Revision: $
+ * @author Francesco Capponi
  */
 class ChannelPoolManagerBuilder
 {
   private final NioEventLoopGroup _eventLoopGroup;
   private final ScheduledExecutorService _scheduler;
 
-  private ExecutorService _callbackExecutors = null;
   private SSLContext _sslContext = null;
   private SSLParameters _sslParameters = null;
-  private long _requestTimeout = 10000;
-  private long _shutdownTimeout = 5000;
-  private long _idleTimeout = 25000;
-  private int _maxHeaderSize = 8192;
-  private int _maxChunkSize = 8192;
-  private long _maxResponseSize = 1024 * 1024 * 2;
-  private String _name = "noNameSpecifiedClient";
-  private int _maxPoolSize = 200;
-  private int _minPoolSize = 0;
-  private int _maxConcurrentConnections = Integer.MAX_VALUE;
-  private int _poolWaiterSize = Integer.MAX_VALUE;
-  private AsyncPoolImpl.Strategy _strategy = AsyncPoolImpl.Strategy.MRU;
-  private AbstractJmxManager _jmxManager = AbstractJmxManager.NULL_JMX_MANAGER;
+  private long _gracefulShutdownTimeout = 30000; // default value in netty
+  private long _idleTimeout = HttpClientFactory.DEFAULT_IDLE_TIMEOUT;
+  private int _maxHeaderSize = HttpClientFactory.DEFAULT_MAX_HEADER_SIZE;
+  private int _maxChunkSize = HttpClientFactory.DEFAULT_MAX_CHUNK_SIZE;
+  private long _maxResponseSize = HttpClientFactory.DEFAULT_MAX_RESPONSE_SIZE;
+  private int _maxPoolSize = HttpClientFactory.DEFAULT_POOL_SIZE;
+  private int _minPoolSize = HttpClientFactory.DEFAULT_POOL_MIN_SIZE;
+  private int _maxConcurrentConnectionInitializations = HttpClientFactory.DEFAULT_DEFAULT_MAX_CONCURRENT_CONNECTIONS;
+  private int _poolWaiterSize = HttpClientFactory.DEFAULT_POOL_WAITER_SIZE;
+  private AsyncPoolImpl.Strategy _strategy = HttpClientFactory.DEFAULT_POOL_STRATEGY;
   private boolean _tcpNoDelay = true;
 
-
+  /**
+   * @param eventLoopGroup The NioEventLoopGroup; it is the caller's responsibility to
+   *                       shut it down
+   * @param scheduler      An executor; it is the caller's responsibility to shut it down
+   */
   public ChannelPoolManagerBuilder(NioEventLoopGroup eventLoopGroup, ScheduledExecutorService scheduler)
   {
     _eventLoopGroup = eventLoopGroup;
     _scheduler = scheduler;
   }
 
-  public ChannelPoolManagerBuilder setCallbackExecutors(ExecutorService callbackExecutors)
-  {
-    _callbackExecutors = callbackExecutors;
-    return this;
-  }
-
+  /**
+   * @param sslContext {@link SSLContext}
+   */
   public ChannelPoolManagerBuilder setSSLContext(SSLContext sslContext)
   {
     _sslContext = sslContext;
     return this;
   }
 
+  /**
+   * @param sslParameters {@link SSLParameters}with overloaded construct
+   */
   public ChannelPoolManagerBuilder setSSLParameters(SSLParameters sslParameters)
   {
     _sslParameters = sslParameters;
     return this;
   }
 
-  public ChannelPoolManagerBuilder setRequestTimeout(long requestTimeout)
+  public ChannelPoolManagerBuilder setGracefulShutdownTimeout(long gracefulShutdownTimeout)
   {
-    _requestTimeout = requestTimeout;
+    _gracefulShutdownTimeout = gracefulShutdownTimeout;
     return this;
   }
 
-  public ChannelPoolManagerBuilder setShutdownTimeout(long shutdownTimeout)
-  {
-    _shutdownTimeout = shutdownTimeout;
-    return this;
-  }
-
+  /**
+   * @param idleTimeout Interval after which idle connections will be automatically closed
+   */
   public ChannelPoolManagerBuilder setIdleTimeout(long idleTimeout)
   {
     _idleTimeout = idleTimeout;
     return this;
   }
 
+  /**
+   * @param maxHeaderSize Maximum size of all HTTP headers
+   */
   public ChannelPoolManagerBuilder setMaxHeaderSize(int maxHeaderSize)
   {
     _maxHeaderSize = maxHeaderSize;
     return this;
   }
 
+  /**
+   * @param maxChunkSize Maximum size of a HTTP chunk
+   */
   public ChannelPoolManagerBuilder setMaxChunkSize(int maxChunkSize)
   {
     _maxChunkSize = maxChunkSize;
     return this;
   }
 
+  /**
+   * @param maxResponseSize Maximum size of a HTTP response
+   */
   public ChannelPoolManagerBuilder setMaxResponseSize(long maxResponseSize)
   {
     _maxResponseSize = maxResponseSize;
     return this;
   }
 
-  public ChannelPoolManagerBuilder setClientName(String name)
-  {
-    _name = name;
-    return this;
-  }
-
+  /**
+   * @param maxPoolSize maximum size for each pool for each host
+   */
   public ChannelPoolManagerBuilder setMaxPoolSize(int maxPoolSize)
   {
     _maxPoolSize = maxPoolSize;
     return this;
   }
 
+  /**
+   * @param minPoolSize minimum size for each pool for each host
+   */
   public ChannelPoolManagerBuilder setMinPoolSize(int minPoolSize)
   {
     _minPoolSize = minPoolSize;
     return this;
   }
 
-  public ChannelPoolManagerBuilder setMaxConcurrentConnections(int maxConcurrentConnections) {
-    _maxConcurrentConnections = maxConcurrentConnections;
+  /**
+   * In case of failure, this is the maximum number or connection that can be retried to establish at the same time
+   */
+  public ChannelPoolManagerBuilder setMaxConcurrentConnectionInitializations(int maxConcurrentConnectionInitializations) {
+    _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
     return this;
   }
 
+  /**
+   * PoolWaiterSize is the max # of concurrent waiters for getting a connection/stream from the AsyncPool
+   */
   public ChannelPoolManagerBuilder setPoolWaiterSize(int poolWaiterSize)
   {
     _poolWaiterSize = poolWaiterSize;
@@ -146,12 +156,6 @@ class ChannelPoolManagerBuilder
   public ChannelPoolManagerBuilder setStrategy(AsyncPoolImpl.Strategy strategy)
   {
     _strategy = strategy;
-    return this;
-  }
-
-  public ChannelPoolManagerBuilder setJmxManager(AbstractJmxManager jmxManager)
-  {
-    _jmxManager = jmxManager;
     return this;
   }
 
@@ -172,8 +176,7 @@ class ChannelPoolManagerBuilder
         _minPoolSize,
         _tcpNoDelay,
         _scheduler,
-        _requestTimeout,
-        _maxConcurrentConnections,
+        _maxConcurrentConnectionInitializations,
         _sslContext,
         _sslParameters,
         _maxHeaderSize,
@@ -199,8 +202,7 @@ class ChannelPoolManagerBuilder
         _maxChunkSize,
         (int) _maxResponseSize,
         _scheduler,
-        _requestTimeout,
-        _maxConcurrentConnections),
+        _maxConcurrentConnectionInitializations),
       "R2 Stream Http2" + ChannelPoolManager.BASE_NAME);
   }
 
@@ -214,7 +216,7 @@ class ChannelPoolManagerBuilder
         _scheduler,
         _sslContext,
         _sslParameters,
-        _requestTimeout,
+        _gracefulShutdownTimeout,
         _maxHeaderSize,
         _maxChunkSize,
         _maxResponseSize,

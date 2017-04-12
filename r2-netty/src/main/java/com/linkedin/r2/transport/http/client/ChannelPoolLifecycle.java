@@ -41,6 +41,9 @@ import java.net.SocketAddress;
 */
 class ChannelPoolLifecycle implements AsyncPool.Lifecycle<Channel>
 {
+  public static final int MAX_PERIOD_BEFORE_RETRY_CONNECTIONS = 5000;
+  public static final int INITIAL_PERIOD_BEFORE_RETRY_CONNECTIONS = 10;
+
   private final SocketAddress _remoteAddress;
   private final Bootstrap _bootstrap;
   private final ChannelGroup _channelGroup;

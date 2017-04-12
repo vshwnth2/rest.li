@@ -48,6 +48,9 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2LifecycleManager;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedList;
@@ -56,8 +59,6 @@ import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -80,17 +81,15 @@ public class Http2FrameListener extends Http2EventAdapter
   private final Http2Connection.PropertyKey _writerKey;
   private final Http2LifecycleManager _lifecycleManager;
   private final long _maxContentLength;
-  private final long _streamingTimeout;
 
   public Http2FrameListener(ScheduledExecutorService scheduler, Http2Connection connection,
-      Http2LifecycleManager lifecycleManager, long maxContentLength, long streamingTimeout)
+                            Http2LifecycleManager lifecycleManager, long maxContentLength)
   {
     _scheduler = scheduler;
     _connection = connection;
     _writerKey = connection.newKey();
     _lifecycleManager = lifecycleManager;
     _maxContentLength = maxContentLength;
-    _streamingTimeout = streamingTimeout;
   }
 
   @Override
@@ -162,8 +161,10 @@ public class Http2FrameListener extends Http2EventAdapter
     }
     else
     {
+      Http2Connection.PropertyKey streamingTimeoutPropertyKey = ctx.channel().attr(Http2ClientPipelineInitializer.REQUEST_TIMEOUT_MS_ATTR_KEY).get();
+      long streamingTimeout = _connection.stream(streamId).getProperty(streamingTimeoutPropertyKey);
       // Associate an entity stream writer to the HTTP/2 stream
-      final TimeoutBufferedWriter writer = new TimeoutBufferedWriter(ctx, streamId, _maxContentLength, handle);
+      final TimeoutBufferedWriter writer = new TimeoutBufferedWriter(ctx, streamId, _maxContentLength, handle, streamingTimeout);
       if (_connection.stream(streamId).setProperty(_writerKey, writer) != null)
       {
         _lifecycleManager.onError(ctx, Http2Exception.connectionError(Http2Error.PROTOCOL_ERROR,
@@ -253,7 +254,7 @@ public class Http2FrameListener extends Http2EventAdapter
     private volatile Throwable _failureBeforeInit;
 
     TimeoutBufferedWriter(final ChannelHandlerContext ctx, int streamId, long maxContentLength,
-        TimeoutAsyncPoolHandle<?> poolHandle)
+                          TimeoutAsyncPoolHandle<?> poolHandle, long streamingTimeout)
     {
       _ctx = ctx;
       _streamId = streamId;
@@ -265,7 +266,7 @@ public class Http2FrameListener extends Http2EventAdapter
       _buffer = new LinkedList<>();
 
       // schedule a timeout to set the stream and inform use
-      _timeout = new Timeout<>(_scheduler, _streamingTimeout, TimeUnit.MILLISECONDS, None.none());
+      _timeout = new Timeout<>(_scheduler, streamingTimeout, TimeUnit.MILLISECONDS, None.none());
       _timeout.addTimeoutTask(() -> _ctx.executor().execute(()
           -> {
         final Exception cause = new TimeoutException("Timeout while receiving the response entity.");

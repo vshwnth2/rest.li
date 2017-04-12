@@ -36,11 +36,12 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import io.netty.handler.ssl.JdkSslContext;
 import io.netty.handler.ssl.SslHandler;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 
 
 /**
@@ -59,7 +60,6 @@ class Http2InitializerHandler extends ChannelOutboundHandlerAdapter
   private final int _maxHeaderSize;
   private final int _maxChunkSize;
   private final long _maxResponseSize;
-  private final long _streamingTimeout;
   private final long _gracefulShutdownTimeout;
   private final Http2Connection _connection;
   private final ScheduledExecutorService _scheduler;
@@ -68,18 +68,17 @@ class Http2InitializerHandler extends ChannelOutboundHandlerAdapter
 
   private boolean _setupComplete = false;
 
-  public Http2InitializerHandler(int maxHeaderSize, int maxChunkSize, long maxResponseSize, long streamingTimeout,
+  public Http2InitializerHandler(int maxHeaderSize, int maxChunkSize, long maxResponseSize, long gracefulShutdownTimeout,
       ScheduledExecutorService scheduler, Http2Connection connection, SSLContext sslContext, SSLParameters sslParameters)
   {
     _maxHeaderSize = maxHeaderSize;
     _maxChunkSize = maxChunkSize;
     _maxResponseSize = maxResponseSize;
-    _streamingTimeout = streamingTimeout;
     // Graceful shutdown timeout dictates the amount of time an HTTP/2 connection waits for existing streams
     // to complete before shutting down the connection, by either connection error or intentional connection close.
     // Sets graceful shutdown timeout to the same value as streaming timeout because there is no point to wait
     // any further if the request has already timed out.
-    _gracefulShutdownTimeout = streamingTimeout;
+    _gracefulShutdownTimeout = gracefulShutdownTimeout;
     _scheduler = scheduler;
     _connection = connection;
     _sslContext = sslContext;
@@ -130,7 +129,6 @@ class Http2InitializerHandler extends ChannelOutboundHandlerAdapter
         .maxContentLength(_maxResponseSize)
         .maxHeaderSize(_maxHeaderSize)
         .gracefulShutdownTimeoutMillis(_gracefulShutdownTimeout)
-        .streamingTimeout(_streamingTimeout)
         .scheduler(_scheduler)
         .build();
     HttpClientCodec sourceCodec = new HttpClientCodec(MAX_INITIAL_LINE_LENGTH, _maxHeaderSize, _maxChunkSize);
@@ -181,7 +179,6 @@ class Http2InitializerHandler extends ChannelOutboundHandlerAdapter
         .maxContentLength(_maxResponseSize)
         .maxHeaderSize(_maxHeaderSize)
         .gracefulShutdownTimeoutMillis(_gracefulShutdownTimeout)
-        .streamingTimeout(_streamingTimeout)
         .scheduler(_scheduler)
         .build();
 

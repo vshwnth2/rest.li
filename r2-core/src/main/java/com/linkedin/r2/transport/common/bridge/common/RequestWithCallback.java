@@ -37,8 +37,9 @@ public class RequestWithCallback<R extends Request, C extends TransportCallback<
   private final R _request;
   private final C _callback;
   private final H _handle;
+  private final long _requestTimeout;
 
-  public RequestWithCallback(R request, C callback, H handle)
+  public RequestWithCallback(R request, C callback, H handle, long requestTimeout)
   {
     ArgumentUtil.notNull(request, "request");
     ArgumentUtil.notNull(callback, "callback");
@@ -47,6 +48,8 @@ public class RequestWithCallback<R extends Request, C extends TransportCallback<
     _request = request;
     _callback = callback;
     _handle = handle;
+    _requestTimeout = requestTimeout;
+
   }
 
   public R request()
@@ -62,5 +65,10 @@ public class RequestWithCallback<R extends Request, C extends TransportCallback<
   public H handle()
   {
     return _handle;
+  }
+
+  public long getRequestTimeout()
+  {
+    return _requestTimeout;
   }
 }

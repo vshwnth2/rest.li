@@ -152,7 +152,6 @@ import java.util.concurrent.atomic.AtomicReference;
         sslParameters,
         maxHeaderSize,
         maxChunkSize, maxResponseSize, _scheduler,
-        requestTimeout,
         maxConcurrentConnections),
       name + ChannelPoolManager.BASE_NAME);
 

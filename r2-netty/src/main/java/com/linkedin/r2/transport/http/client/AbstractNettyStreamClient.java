@@ -80,8 +80,6 @@ abstract class AbstractNettyStreamClient implements TransportClient
 
   protected final long _requestTimeout;
   protected final long _shutdownTimeout;
-  protected final long _maxResponseSize;
-  protected final int _maxConcurrentConnections;
 
   protected final String _requestTimeoutMessage;
   protected final AbstractJmxManager _jmxManager;
@@ -95,24 +93,17 @@ abstract class AbstractNettyStreamClient implements TransportClient
    * @param requestTimeout            Timeout, in ms, to get a connection from the pool or create one
    * @param shutdownTimeout           Timeout, in ms, the client should wait after shutdown is
    *                                  initiated before terminating outstanding requests
-   * @param maxResponseSize           Maximum size of a HTTP response
    * @param callbackExecutors         An optional EventExecutorGroup to invoke user callback
    * @param jmxManager                A management class that is aware of the creation/shutdown event
    *                                  of the underlying {@link ChannelPoolManager}
-   * @param maxConcurrentConnections  Maximum number of concurrent connection attempts the HTTP
-   *                                  connection pool can make.
    */
   public AbstractNettyStreamClient(NioEventLoopGroup eventLoopGroup,
-      ScheduledExecutorService executor,
-      long requestTimeout,
-      long shutdownTimeout,
-      long maxResponseSize,
-      ExecutorService callbackExecutors,
-      AbstractJmxManager jmxManager,
-      int maxConcurrentConnections)
+                                   ScheduledExecutorService executor,
+                                   long requestTimeout,
+                                   long shutdownTimeout,
+                                   ExecutorService callbackExecutors,
+                                   AbstractJmxManager jmxManager)
   {
-    _maxResponseSize = maxResponseSize;
-    _maxConcurrentConnections = maxConcurrentConnections;
     _scheduler = executor;
     _callbackExecutors = callbackExecutors == null ? eventLoopGroup : callbackExecutors;
     _requestTimeout = requestTimeout;
@@ -123,19 +114,16 @@ abstract class AbstractNettyStreamClient implements TransportClient
 
   /* Constructor for test purpose ONLY. */
   AbstractNettyStreamClient(ChannelPoolFactory factory,
-      ScheduledExecutorService executor,
-      int requestTimeout,
-      int shutdownTimeout,
-      long maxResponseSize)
+                            ScheduledExecutorService executor,
+                            int requestTimeout,
+                            int shutdownTimeout)
   {
-    _maxResponseSize = maxResponseSize;
     _scheduler = executor;
     _callbackExecutors = new DefaultEventExecutorGroup(1);
     _requestTimeout = requestTimeout;
     _shutdownTimeout = shutdownTimeout;
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = AbstractJmxManager.NULL_JMX_MANAGER;
-    _maxConcurrentConnections = Integer.MAX_VALUE;
   }
 
   /**
@@ -318,8 +306,4 @@ abstract class AbstractNettyStreamClient implements TransportClient
     return _shutdownTimeout;
   }
 
-  public long getMaxResponseSize()
-  {
-    return _maxResponseSize;
-  }
 }

@@ -96,8 +96,8 @@ import java.util.function.Consumer;
       AbstractJmxManager jmxManager, int maxHeaderSize,
       int maxChunkSize, int maxConcurrentConnections, boolean tcpNoDelay)
   {
-    super(eventLoopGroup, scheduler, requestTimeout, shutdownTimeout, maxResponseSize, callbackExecutors,
-        jmxManager, maxConcurrentConnections);
+    super(eventLoopGroup, scheduler, requestTimeout, shutdownTimeout, callbackExecutors,
+        jmxManager);
 
     _channelPoolManager = new ChannelPoolManager(
       new Http2NettyStreamChannelPoolFactory(
@@ -120,13 +120,13 @@ import java.util.function.Consumer;
   }
 
   public Http2NettyStreamClient(NioEventLoopGroup eventLoopGroup, ScheduledExecutorService scheduler,
-                                long requestTimeout, long shutdownTimeout, long maxResponseSize,
+                                long requestTimeout, long shutdownTimeout,
                                 ExecutorService callbackExecutors,
                                 AbstractJmxManager jmxManager,
-                                int maxConcurrentConnections, ChannelPoolManager channelPoolManager)
+                                ChannelPoolManager channelPoolManager)
   {
-    super(eventLoopGroup, scheduler, requestTimeout, shutdownTimeout, maxResponseSize, callbackExecutors,
-      jmxManager, maxConcurrentConnections);
+    super(eventLoopGroup, scheduler, requestTimeout, shutdownTimeout, callbackExecutors,
+      jmxManager);
     _channelPoolManager = channelPoolManager;
     _scheduler = scheduler;
     _requestTimeout = requestTimeout;
@@ -243,7 +243,7 @@ import java.util.function.Consumer;
           _pool, _scheduler, _requestTimeout, TimeUnit.MILLISECONDS, channel);
 
       RequestWithCallback<Request, TimeoutTransportCallback<StreamResponse>, TimeoutAsyncPoolHandle<Channel>> request =
-          new RequestWithCallback<>(_request, _callback, handle);
+          new RequestWithCallback<>(_request, _callback, handle, _requestTimeout);
 
       // here we want the exception in outbound operations to be passed back through pipeline so that
       // the user callback would be invoked with the exception and the channel can be put back into the pool
