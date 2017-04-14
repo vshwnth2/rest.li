@@ -39,8 +39,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Set;
@@ -68,70 +66,14 @@ import java.util.concurrent.TimeoutException;
    * @param eventLoopGroup            The NioEventLoopGroup; it is the caller's responsibility to
    *                                  shut it down
    * @param executor                  An executor; it is the caller's responsibility to shut it down
-   * @param poolSize                  Maximum size of the underlying HTTP connection pool
    * @param requestTimeout            Timeout, in ms, to get a connection from the pool or create one
-   * @param idleTimeout               Interval after which idle connections will be automatically closed
    * @param shutdownTimeout           Timeout, in ms, the client should wait after shutdown is
    *                                  initiated before terminating outstanding requests
-   * @param maxResponseSize           Maximum size of a HTTP response
-   * @param sslContext                {@link SSLContext}
-   * @param sslParameters             {@link SSLParameters}with overloaded construct
    * @param callbackExecutors         An optional EventExecutorGroup to invoke user callback
-   * @param poolWaiterSize            Maximum waiters waiting on the HTTP connection pool
-   * @param name                      Name of the {@link HttpNettyStreamClient}
    * @param jmxManager                A management class that is aware of the creation/shutdown event
    *                                  of the underlying {@link ChannelPoolManager}
-   * @param strategy                  The strategy used to return pool objects.
-   * @param minPoolSize               Minimum number of objects in the pool. Set to zero for no minimum.
-   * @param maxHeaderSize             Maximum size of all HTTP headers
-   * @param maxChunkSize              Maximum size of a HTTP chunk
-   * @param maxConcurrentConnections  Maximum number of concurrent connection attempts the HTTP
-   *                                  connection pool can make.
+   * @param channelPoolManager        channelPoolManager instance to use in the factory
    */
-  public HttpNettyStreamClient(NioEventLoopGroup eventLoopGroup,
-      ScheduledExecutorService executor,
-      int poolSize,
-      long requestTimeout,
-      long idleTimeout,
-      long shutdownTimeout,
-      long maxResponseSize,
-      SSLContext sslContext,
-      SSLParameters sslParameters,
-      ExecutorService callbackExecutors,
-      int poolWaiterSize,
-      String name,
-      AbstractJmxManager jmxManager,
-      AsyncPoolImpl.Strategy strategy,
-      int minPoolSize,
-      int maxHeaderSize,
-      int maxChunkSize,
-      int maxConcurrentConnections,
-      boolean tcpNoDelay)
-  {
-    super(eventLoopGroup, executor, requestTimeout, shutdownTimeout, callbackExecutors,
-        jmxManager);
-
-    _channelPoolManager = new ChannelPoolManager(
-      new HttpNettyStreamChannelPoolFactoryImpl(
-        poolSize,
-        idleTimeout,
-        poolWaiterSize,
-        strategy,
-        minPoolSize,
-        tcpNoDelay,
-        _scheduler,
-        maxConcurrentConnections,
-        sslContext,
-        sslParameters,
-        maxHeaderSize,
-        maxChunkSize,
-        maxResponseSize,
-        eventLoopGroup),
-      name + ChannelPoolManager.BASE_NAME);
-
-    _jmxManager.onProviderCreate(_channelPoolManager);
-  }
-
   public HttpNettyStreamClient(NioEventLoopGroup eventLoopGroup,
                                ScheduledExecutorService executor,
                                long requestTimeout,

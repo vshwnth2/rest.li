@@ -46,8 +46,6 @@ import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -91,80 +89,24 @@ import java.util.concurrent.atomic.AtomicReference;
 
   /**
    * Creates a new HttpNettyClient
-   *
-   * @param eventLoopGroup            The NioEventLoopGroup; it is the caller's responsibility to
+   *  @param eventLoopGroup            The NioEventLoopGroup; it is the caller's responsibility to
    *                                  shut it down
    * @param executor                  An executor; it is the caller's responsibility to shut it down
-   * @param poolSize                  Maximum size of the underlying HTTP connection pool
    * @param requestTimeout            Timeout, in ms, to get a connection from the pool or create one
-   * @param idleTimeout               Interval after which idle connections will be automatically closed
    * @param shutdownTimeout           Timeout, in ms, the client should wait after shutdown is
    *                                  initiated before terminating outstanding requests
-   * @param maxResponseSize           Maximum size of a HTTP response
-   * @param sslContext                {@link SSLContext}
-   * @param sslParameters             {@link SSLParameters}with overloaded construct
    * @param callbackExecutors         An optional EventExecutorGroup to invoke user callback
-   * @param poolWaiterSize            Maximum waiters waiting on the HTTP connection pool
-   * @param name                      Name of the {@link HttpNettyClient}
    * @param jmxManager                A management class that is aware of the creation/shutdown event
    *                                  of the underlying {@link ChannelPoolManager}
-   * @param strategy                  The strategy used to return pool objects.
-   * @param minPoolSize               Minimum number of objects in the pool. Set to zero for no minimum.
-   * @param maxHeaderSize             Maximum size of all HTTP headers
-   * @param maxChunkSize              Maximum size of a HTTP chunk
-   * @param maxConcurrentConnections  Maximum number of concurrent connection attempts the HTTP
-   *                                  connection pool can make.
+   * @param channelPoolManager        channelPoolManager instance to use in the factory
    */
   public HttpNettyClient(NioEventLoopGroup eventLoopGroup,
                          ScheduledExecutorService executor,
-                         int poolSize,
                          long requestTimeout,
-                         long idleTimeout,
                          long shutdownTimeout,
-                         int maxResponseSize,
-                         SSLContext sslContext,
-                         SSLParameters sslParameters,
                          ExecutorService callbackExecutors,
-                         int poolWaiterSize,
-                         String name,
                          AbstractJmxManager jmxManager,
-                         AsyncPoolImpl.Strategy strategy,
-                         int minPoolSize,
-                         int maxHeaderSize,
-                         int maxChunkSize,
-                         int maxConcurrentConnections)
-  {
-    _scheduler = executor;
-    _callbackExecutors = callbackExecutors == null ? eventLoopGroup : callbackExecutors;
-    _requestTimeout = requestTimeout;
-    _shutdownTimeout = shutdownTimeout;
-    _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
-    _jmxManager = jmxManager;
-
-    _channelPoolManager = new ChannelPoolManager(
-      new HttpNettyChannelPoolFactoryImpl(poolSize,
-        idleTimeout,
-        poolWaiterSize,
-        strategy,
-        minPoolSize,
-        eventLoopGroup,
-        sslContext,
-        sslParameters,
-        maxHeaderSize,
-        maxChunkSize, maxResponseSize, _scheduler,
-        maxConcurrentConnections),
-      name + ChannelPoolManager.BASE_NAME);
-
-    _jmxManager.onProviderCreate(_channelPoolManager);
-  }
-
-  public HttpNettyClient(NioEventLoopGroup eventLoopGroup,
-                         ScheduledExecutorService executor,
-                         ChannelPoolManager channelPoolManager,
-                         long requestTimeout,
-                         long shutdownTimeout,
-                         ExecutorService callbackExecutors,
-                         AbstractJmxManager jmxManager)
+                         ChannelPoolManager channelPoolManager)
   {
     _scheduler = executor;
     _callbackExecutors = callbackExecutors == null ? eventLoopGroup : callbackExecutors;
@@ -181,10 +123,8 @@ import java.util.concurrent.atomic.AtomicReference;
   HttpNettyClient(ChannelPoolFactory factory,
                   ScheduledExecutorService executor,
                   int requestTimeout,
-                  int shutdownTimeout,
-                  int maxResponseSize)
+                  int shutdownTimeout)
   {
-//    _maxResponseSize = maxResponseSize;
     _channelPoolManager = new ChannelPoolManager(factory);
     _scheduler = executor;
     _callbackExecutors = new DefaultEventExecutorGroup(1);
@@ -193,9 +133,6 @@ import java.util.concurrent.atomic.AtomicReference;
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = AbstractJmxManager.NULL_JMX_MANAGER;
     _jmxManager.onProviderCreate(_channelPoolManager);
-//    _maxHeaderSize = 8192;
-//    _maxChunkSize = 8192;
-//    _maxConcurrentConnections = Integer.MAX_VALUE;
   }
 
   @Override
@@ -344,7 +281,7 @@ import java.util.concurrent.atomic.AtomicReference;
       return;
     }
 
-    TimeoutTransportCallbackConnectionAware<RestResponse, Channel> newCallback = new TimeoutTransportCallbackConnectionAware<RestResponse, Channel>(callback, callbacks, channel ->
+    TimeoutTransportCallbackConnectionAware<RestResponse, Channel> newCallback = new TimeoutTransportCallbackConnectionAware<>(callback, callbacks, channel ->
     {
       if (channel != null)
       {

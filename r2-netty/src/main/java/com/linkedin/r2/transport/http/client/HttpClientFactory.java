@@ -937,13 +937,8 @@ public class HttpClientFactory implements TransportClientFactory
         throw new IllegalArgumentException("Unrecognized HTTP protocol version " + httpProtocolVersion);
     }
 
-    HttpNettyClient legacyClient = new HttpNettyClient(_eventLoopGroup,
-            _executor,
-      channelPoolManagerBuilder.buildRest(),
-      requestTimeout,
-      shutdownTimeout,
-      _callbackExecutorGroup,
-      _jmxManager);
+    HttpNettyClient legacyClient = new HttpNettyClient(_eventLoopGroup, _executor, requestTimeout, shutdownTimeout,
+      _callbackExecutorGroup, _jmxManager, channelPoolManagerBuilder.buildRest());
 
     return new MixedClient(legacyClient, streamClient, maxResponseSize);
   }

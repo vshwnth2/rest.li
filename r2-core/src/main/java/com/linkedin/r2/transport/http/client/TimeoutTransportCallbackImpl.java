@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * A TransportCallback wrapper with associated timeout.  If the TimeoutTransportCallbackImpl's
+ * A TransportCallback wrapper with associated timeout.  If the TimeoutTransportCallback's
  * onResponse method is invoked before the timeout expires, the timeout is cancelled.
  * Otherwise, when the timeout expires, the wrapped TransportCallback's onResponse method is
  * invoked with a {@link java.util.concurrent.TimeoutException}.

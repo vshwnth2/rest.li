@@ -40,8 +40,6 @@ import io.netty.handler.codec.http2.Http2Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Set;
@@ -74,52 +72,14 @@ import java.util.function.Consumer;
    *                                  shut it down
    * @param scheduler                  An executor; it is the caller's responsibility to shut it down
    * @param requestTimeout            Timeout, in ms, to get a connection from the pool or create one
-   * @param idleTimeout               Interval after which idle connections will be automatically closed
    * @param shutdownTimeout           Timeout, in ms, the client should wait after shutdown is
    *                                  initiated before terminating outstanding requests
-   * @param maxResponseSize           Maximum size of a HTTP response
-   * @param sslContext                {@link SSLContext}
-   * @param sslParameters             {@link SSLParameters}with overloaded construct
    * @param callbackExecutors         An optional EventExecutorGroup to invoke user callback
-   * @param poolWaiterSize            Maximum waiters waiting on the HTTP connection pool
-   * @param name                      Name of the {@link HttpNettyStreamClient}
    * @param jmxManager                A management class that is aware of the creation/shutdown event
    *                                  of the underlying {@link ChannelPoolManager}
-   * @param maxHeaderSize             Maximum size of all HTTP headers
-   * @param maxChunkSize              Maximum size of a HTTP chunk
-   * @param maxConcurrentConnections  Maximum number of concurrent connection attempts the HTTP
-   *                                  connection pool can make.
+   * @param channelPoolManager        channelPoolManager instance to use in the factory
    */
-  public Http2NettyStreamClient(NioEventLoopGroup eventLoopGroup, ScheduledExecutorService scheduler,
-      long requestTimeout, long idleTimeout, long shutdownTimeout, long maxResponseSize, SSLContext sslContext,
-      SSLParameters sslParameters, ExecutorService callbackExecutors, int poolWaiterSize, String name,
-      AbstractJmxManager jmxManager, int maxHeaderSize,
-      int maxChunkSize, int maxConcurrentConnections, boolean tcpNoDelay)
-  {
-    super(eventLoopGroup, scheduler, requestTimeout, shutdownTimeout, callbackExecutors,
-        jmxManager);
-
-    _channelPoolManager = new ChannelPoolManager(
-      new Http2NettyStreamChannelPoolFactory(
-        idleTimeout,
-        poolWaiterSize,
-        tcpNoDelay,
-        scheduler,
-        sslContext,
-        sslParameters,
-        requestTimeout,
-        maxHeaderSize,
-        maxChunkSize,
-        maxResponseSize,
-        eventLoopGroup),
-      name + ChannelPoolManager.BASE_NAME);
-    _scheduler = scheduler;
-    _requestTimeout = requestTimeout;
-
-    _jmxManager.onProviderCreate(_channelPoolManager);
-  }
-
-  public Http2NettyStreamClient(NioEventLoopGroup eventLoopGroup, ScheduledExecutorService scheduler,
+   public Http2NettyStreamClient(NioEventLoopGroup eventLoopGroup, ScheduledExecutorService scheduler,
                                 long requestTimeout, long shutdownTimeout,
                                 ExecutorService callbackExecutors,
                                 AbstractJmxManager jmxManager,

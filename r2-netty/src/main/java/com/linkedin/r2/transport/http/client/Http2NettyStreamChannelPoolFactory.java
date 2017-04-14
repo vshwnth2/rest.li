@@ -29,7 +29,7 @@ class Http2NettyStreamChannelPoolFactory implements ChannelPoolFactory
     ScheduledExecutorService scheduler,
     SSLContext sslContext,
     SSLParameters sslParameters,
-    long gracefulShutdownTimeout,
+    int gracefulShutdownTimeout,
     int maxHeaderSize,
     int maxChunkSize,
     long maxResponseSize,

@@ -17,6 +17,7 @@
 package com.linkedin.r2.transport.http.client;
 
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.internal.ObjectUtil;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -35,7 +36,7 @@ class ChannelPoolManagerBuilder
 
   private SSLContext _sslContext = null;
   private SSLParameters _sslParameters = null;
-  private long _gracefulShutdownTimeout = 30000; // default value in netty
+  private int _gracefulShutdownTimeout = 30000; // default value in netty
   private long _idleTimeout = HttpClientFactory.DEFAULT_IDLE_TIMEOUT;
   private int _maxHeaderSize = HttpClientFactory.DEFAULT_MAX_HEADER_SIZE;
   private int _maxChunkSize = HttpClientFactory.DEFAULT_MAX_CHUNK_SIZE;
@@ -76,8 +77,9 @@ class ChannelPoolManagerBuilder
     return this;
   }
 
-  public ChannelPoolManagerBuilder setGracefulShutdownTimeout(long gracefulShutdownTimeout)
+  public ChannelPoolManagerBuilder setGracefulShutdownTimeout(int gracefulShutdownTimeout)
   {
+    ObjectUtil.checkPositiveOrZero(gracefulShutdownTimeout, "gracefulShutdownTimeout");
     _gracefulShutdownTimeout = gracefulShutdownTimeout;
     return this;
   }
@@ -87,6 +89,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setIdleTimeout(long idleTimeout)
   {
+    ObjectUtil.checkPositive(idleTimeout, "idleTimeout");
     _idleTimeout = idleTimeout;
     return this;
   }
@@ -96,6 +99,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setMaxHeaderSize(int maxHeaderSize)
   {
+    ObjectUtil.checkPositive(maxHeaderSize, "maxHeaderSize");
     _maxHeaderSize = maxHeaderSize;
     return this;
   }
@@ -105,6 +109,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setMaxChunkSize(int maxChunkSize)
   {
+    ObjectUtil.checkPositive(maxChunkSize, "maxChunkSize");
     _maxChunkSize = maxChunkSize;
     return this;
   }
@@ -114,6 +119,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setMaxResponseSize(long maxResponseSize)
   {
+    ObjectUtil.checkPositive(maxResponseSize, "maxResponseSize");
     _maxResponseSize = maxResponseSize;
     return this;
   }
@@ -123,6 +129,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setMaxPoolSize(int maxPoolSize)
   {
+    ObjectUtil.checkPositive(maxPoolSize, "maxPoolSize");
     _maxPoolSize = maxPoolSize;
     return this;
   }
@@ -132,6 +139,7 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setMinPoolSize(int minPoolSize)
   {
+    ObjectUtil.checkPositiveOrZero(minPoolSize, "minPoolSize");
     _minPoolSize = minPoolSize;
     return this;
   }
@@ -140,6 +148,7 @@ class ChannelPoolManagerBuilder
    * In case of failure, this is the maximum number or connection that can be retried to establish at the same time
    */
   public ChannelPoolManagerBuilder setMaxConcurrentConnectionInitializations(int maxConcurrentConnectionInitializations) {
+    ObjectUtil.checkPositive(maxConcurrentConnectionInitializations, "maxConcurrentConnectionInitializations");
     _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
     return this;
   }
@@ -149,12 +158,17 @@ class ChannelPoolManagerBuilder
    */
   public ChannelPoolManagerBuilder setPoolWaiterSize(int poolWaiterSize)
   {
+    ObjectUtil.checkPositiveOrZero(poolWaiterSize, "poolWaiterSize");
     _poolWaiterSize = poolWaiterSize;
     return this;
   }
 
+  /**
+   * @param strategy The strategy used to return pool objects.
+   */
   public ChannelPoolManagerBuilder setStrategy(AsyncPoolImpl.Strategy strategy)
   {
+    ObjectUtil.checkNotNull(strategy, "strategy");
     _strategy = strategy;
     return this;
   }
@@ -163,6 +177,26 @@ class ChannelPoolManagerBuilder
   {
     _tcpNoDelay = tcpNoDelay;
     return this;
+  }
+
+  public ChannelPoolManager buildRest()
+  {
+    return new ChannelPoolManager(
+      new HttpNettyChannelPoolFactoryImpl(
+        _maxPoolSize,
+        _idleTimeout,
+        _poolWaiterSize,
+        _strategy,
+        _minPoolSize,
+        _eventLoopGroup,
+        _sslContext,
+        _sslParameters,
+        _maxHeaderSize,
+        _maxChunkSize,
+        (int) _maxResponseSize,
+        _scheduler,
+        _maxConcurrentConnectionInitializations),
+      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME);
   }
 
   public ChannelPoolManager buildStream()
@@ -184,26 +218,6 @@ class ChannelPoolManagerBuilder
         _maxResponseSize,
         _eventLoopGroup),
       "R2 Stream Http1 " + ChannelPoolManager.BASE_NAME);
-  }
-
-  public ChannelPoolManager buildRest()
-  {
-    return new ChannelPoolManager(
-      new HttpNettyChannelPoolFactoryImpl(
-        _maxPoolSize,
-        _idleTimeout,
-        _poolWaiterSize,
-        _strategy,
-        _minPoolSize,
-        _eventLoopGroup,
-        _sslContext,
-        _sslParameters,
-        _maxHeaderSize,
-        _maxChunkSize,
-        (int) _maxResponseSize,
-        _scheduler,
-        _maxConcurrentConnectionInitializations),
-      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME);
   }
 
   public ChannelPoolManager buildHttp2Stream()
