@@ -47,7 +47,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 
 /**
  * @author Steven Ihde
@@ -114,10 +113,22 @@ import java.util.function.Consumer;
   class TimeoutTransportCallbackConnectionAwareHttp2 extends TimeoutTransportCallbackConnectionAware<StreamResponse, Map.Entry<Channel, Http2Stream>>
   {
     TimeoutTransportCallbackConnectionAwareHttp2(TimeoutTransportCallback<StreamResponse> callback,
-                                                 Set<TimeoutTransportCallbackConnectionAware<StreamResponse, Map.Entry<Channel, Http2Stream>>> timeoutTransportCallbacks,
-                                                 Consumer<Map.Entry<Channel, Http2Stream>> closeConnection)
+                                                 Set<TimeoutTransportCallbackConnectionAware<StreamResponse, Map.Entry<Channel, Http2Stream>>> timeoutTransportCallbacks)
     {
-      super(callback, timeoutTransportCallbacks, closeConnection);
+      super(callback, timeoutTransportCallbacks, channelStreamEntry ->
+      {
+        Channel channel = channelStreamEntry.getKey();
+        Http2Stream stream = channelStreamEntry.getValue();
+
+        stream.close();
+        Http2Connection.PropertyKey handleKey =
+          channel.attr(Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY).get();
+        AsyncPoolHandle<Channel> handle = stream.getProperty(handleKey);
+        if (handle != null)
+        {
+          handle.release();
+        }
+      });
     }
   }
 
@@ -138,22 +149,8 @@ import java.util.function.Consumer;
 
     context.putLocalAttr(R2Constants.HTTP_PROTOCOL_VERSION, HttpProtocolVersion.HTTP_2);
 
-
     TimeoutTransportCallbackConnectionAwareHttp2 newCallback
-      = new TimeoutTransportCallbackConnectionAwareHttp2(callback, callbacks, channelStreamEntry ->
-    {
-      Channel channel = channelStreamEntry.getKey();
-      Http2Stream stream = channelStreamEntry.getValue();
-
-      stream.close();
-      Http2Connection.PropertyKey handleKey =
-        channel.attr(Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY).get();
-      AsyncPoolHandle<Channel> handle = stream.getProperty(handleKey);
-      if (handle != null)
-      {
-        handle.release();
-      }
-    });
+      = new TimeoutTransportCallbackConnectionAwareHttp2(callback, callbacks);
 
     Callback<Channel> getCallback = new ChannelPoolGetCallback(pool, request, newCallback);
     final Cancellable pendingGet = pool.get(getCallback);
