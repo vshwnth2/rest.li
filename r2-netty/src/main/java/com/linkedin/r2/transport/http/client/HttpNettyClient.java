@@ -20,7 +20,6 @@
 
 package com.linkedin.r2.transport.http.client;
 
-import com.google.common.collect.Sets;
 import com.linkedin.common.callback.Callback;
 import com.linkedin.common.util.None;
 import com.linkedin.r2.filter.R2Constants;
@@ -41,8 +40,13 @@ import com.linkedin.r2.util.Cancellable;
 import com.linkedin.r2.util.TimeoutRunnable;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelGroupFuture;
+import io.netty.channel.group.ChannelGroupFutureListener;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +56,6 @@ import java.net.SocketAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -72,6 +75,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private static final int HTTPS_DEFAULT_PORT = 443;
 
   private final ChannelPoolManager _channelPoolManager;
+  private final ChannelGroup _allChannels;
 
   private final AtomicReference<State> _state = new AtomicReference<State>(State.RUNNING);
 
@@ -85,7 +89,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
   private final String _requestTimeoutMessage;
   private final AbstractJmxManager _jmxManager;
-  Set<TimeoutTransportCallbackConnectionAware<RestResponse, Channel>> callbacks = Sets.newConcurrentHashSet();
 
   /**
    * Creates a new HttpNettyClient
@@ -115,6 +118,7 @@ import java.util.concurrent.atomic.AtomicReference;
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = jmxManager;
     _channelPoolManager = channelPoolManager;
+    _allChannels = _channelPoolManager.getAllChannels();
     _jmxManager.onProviderCreate(_channelPoolManager);
 
   }
@@ -125,7 +129,9 @@ import java.util.concurrent.atomic.AtomicReference;
                   int requestTimeout,
                   int shutdownTimeout)
   {
-    _channelPoolManager = new ChannelPoolManager(factory);
+    DefaultChannelGroup allChannels = new DefaultChannelGroup("R2 client channels", GlobalEventExecutor.INSTANCE);
+
+    _channelPoolManager = new ChannelPoolManager(factory, allChannels);
     _scheduler = executor;
     _callbackExecutors = new DefaultEventExecutorGroup(1);
     _requestTimeout = requestTimeout;
@@ -133,6 +139,7 @@ import java.util.concurrent.atomic.AtomicReference;
     _requestTimeoutMessage = "Exceeded request timeout of " + _requestTimeout + "ms";
     _jmxManager = AbstractJmxManager.NULL_JMX_MANAGER;
     _jmxManager.onProviderCreate(_channelPoolManager);
+    _allChannels = _channelPoolManager.getAllChannels();
   }
 
   @Override
@@ -173,18 +180,45 @@ import java.util.concurrent.atomic.AtomicReference;
             {
               _state.set(State.REQUESTS_STOPPING);
               // Timeout any waiters which haven't received a Channel yet
-              callbacks.forEach(callback -> errorResponse(callback, new TimeoutException("Operation did not complete before shutdown")));
-              callbacks.forEach(TimeoutTransportCallbackConnectionAware::close);
+              for (Callback<Channel> callback : _channelPoolManager.cancelWaiters())
+              {
+                callback.onError(new TimeoutException("Operation did not complete before shutdown"));
+              }
 
+              // Timeout any requests still pending response
+              for (Channel c : _allChannels)
+              {
+                TransportCallback<RestResponse> callback = c.attr(RAPResponseHandler.CALLBACK_ATTR_KEY).getAndRemove();
+                if (callback != null)
+                {
+                  errorResponse(callback, new TimeoutException("Operation did not complete before shutdown"));
+                }
+              }
 
               // Close all active and idle Channels
-              new TimeoutRunnable(
-                _scheduler, deadline - System.currentTimeMillis(), TimeUnit.MILLISECONDS, () ->
+              final TimeoutRunnable afterClose = new TimeoutRunnable(
+                _scheduler, deadline - System.currentTimeMillis(), TimeUnit.MILLISECONDS, new Runnable()
               {
-                _state.set(State.SHUTDOWN);
-                LOG.info("Shutdown complete");
-                callback.onSuccess(None.none());
-              }, "Timed out waiting for channels to close, continuing shutdown").run();
+                @Override
+                public void run()
+                {
+                  _state.set(State.SHUTDOWN);
+                  LOG.info("Shutdown complete");
+                  callback.onSuccess(None.none());
+                }
+              }, "Timed out waiting for channels to close, continuing shutdown");
+              _allChannels.close().addListener(new ChannelGroupFutureListener()
+              {
+                @Override
+                public void operationComplete(ChannelGroupFuture channelGroupFuture) throws Exception
+                {
+                  if (!channelGroupFuture.isSuccess())
+                  {
+                    LOG.warn("Failed to close some connections, ignoring");
+                  }
+                  afterClose.run();
+                }
+              });
             }
 
             @Override
@@ -281,14 +315,6 @@ import java.util.concurrent.atomic.AtomicReference;
       return;
     }
 
-    TimeoutTransportCallbackConnectionAware<RestResponse, Channel> newCallback = new TimeoutTransportCallbackConnectionAware<>(callback, callbacks, channel ->
-    {
-      if (channel != null)
-      {
-        channel.close();
-      }
-    });
-
     final Cancellable pendingGet = pool.get(new Callback<Channel>()
     {
       @Override
@@ -297,7 +323,7 @@ import java.util.concurrent.atomic.AtomicReference;
         // This handler ensures the channel is returned to the pool at the end of the
         // Netty pipeline.
         channel.attr(ChannelPoolHandler.CHANNEL_POOL_ATTR_KEY).set(pool);
-        newCallback.addTimeoutTask(new Runnable()
+        callback.addTimeoutTask(new Runnable()
         {
           @Override
           public void run()
@@ -311,7 +337,7 @@ import java.util.concurrent.atomic.AtomicReference;
         });
 
         // This handler invokes the callback with the response once it arrives.
-        channel.attr(RAPResponseHandler.CALLBACK_ATTR_KEY).set(newCallback);
+        channel.attr(RAPResponseHandler.CALLBACK_ATTR_KEY).set(callback);
 
         final State state = _state.get();
         if (state == State.REQUESTS_STOPPING || state == State.SHUTDOWN)
@@ -321,7 +347,7 @@ import java.util.concurrent.atomic.AtomicReference;
           // all the channels for pending requests before we set the callback as the channel
           // attachment.  The TimeoutTransportCallback ensures the user callback in never
           // invoked more than once, so it is safe to invoke it unconditionally.
-          errorResponse(newCallback,
+          errorResponse(callback,
             new TimeoutException("Operation did not complete before shutdown"));
           return;
         }
@@ -339,7 +365,7 @@ import java.util.concurrent.atomic.AtomicReference;
     });
     if (pendingGet != null)
     {
-      newCallback.addTimeoutTask(new Runnable()
+      callback.addTimeoutTask(new Runnable()
       {
         @Override
         public void run()

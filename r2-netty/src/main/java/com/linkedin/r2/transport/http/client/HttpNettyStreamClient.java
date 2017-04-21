@@ -21,13 +21,13 @@
 package com.linkedin.r2.transport.http.client;
 
 
-import com.google.common.collect.Sets;
 import com.linkedin.common.callback.Callback;
 import com.linkedin.common.util.None;
 import com.linkedin.r2.filter.R2Constants;
 import com.linkedin.r2.message.Request;
 import com.linkedin.r2.message.RequestContext;
 import com.linkedin.r2.message.stream.StreamResponse;
+import com.linkedin.r2.transport.common.bridge.common.TransportCallback;
 import com.linkedin.r2.transport.common.bridge.common.TransportResponseImpl;
 import com.linkedin.r2.transport.http.common.HttpProtocolVersion;
 import com.linkedin.r2.util.Cancellable;
@@ -35,13 +35,17 @@ import com.linkedin.r2.util.Timeout;
 import com.linkedin.r2.util.TimeoutRunnable;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelGroupFuture;
+import io.netty.channel.group.ChannelGroupFutureListener;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketAddress;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +63,7 @@ import java.util.concurrent.TimeoutException;
   static final Logger LOG = LoggerFactory.getLogger(HttpNettyStreamClient.class);
 
   private final ChannelPoolManager _channelPoolManager;
+  private final ChannelGroup _allChannels;
 
   /**
    * Creates a new HttpNettyStreamClient
@@ -86,6 +91,7 @@ import java.util.concurrent.TimeoutException;
       jmxManager);
     _channelPoolManager = channelPoolManager;
     _jmxManager.onProviderCreate(_channelPoolManager);
+    _allChannels = channelPoolManager.getAllChannels();
   }
 
   /* Constructor for test purpose ONLY. */
@@ -96,7 +102,11 @@ import java.util.concurrent.TimeoutException;
       long maxResponseSize)
   {
     super(factory, executor, requestTimeout, shutdownTimeout);
-    _channelPoolManager = new ChannelPoolManager(factory);
+    DefaultChannelGroup allChannels = new DefaultChannelGroup("R2 client channels", GlobalEventExecutor.INSTANCE);
+
+    _channelPoolManager = new ChannelPoolManager(factory, allChannels);
+    _allChannels = allChannels;
+
     _jmxManager.onProviderCreate(_channelPoolManager);
   }
 
@@ -133,32 +143,21 @@ import java.util.concurrent.TimeoutException;
 
     context.putLocalAttr(R2Constants.HTTP_PROTOCOL_VERSION, HttpProtocolVersion.HTTP_1_1);
 
-    TimeoutTransportCallbackConnectionAware<StreamResponse, Channel> newCallback = new TimeoutTransportCallbackConnectionAware<>(callback, callbacks, channel ->
-    {
-      if (channel != null)
-      {
-        channel.close();
-      }
-    });
-
-    Callback<Channel> getCallback = new ChannelPoolGetCallback(pool, request, newCallback);
-
+    Callback<Channel> getCallback = new ChannelPoolGetCallback(pool, request, callback);
     final Cancellable pendingGet = pool.get(getCallback);
     if (pendingGet != null)
     {
-      newCallback.addTimeoutTask(() -> pendingGet.cancel());
+      callback.addTimeoutTask(() -> pendingGet.cancel());
     }
   }
-
-  Set<TimeoutTransportCallbackConnectionAware<StreamResponse, Channel>> callbacks = Sets.newConcurrentHashSet();
 
   private class ChannelPoolGetCallback implements Callback<Channel>
   {
     private final AsyncPool<Channel> _pool;
     private final Request _request;
-    private final TimeoutTransportCallbackConnectionAware<StreamResponse, Channel> _callback;
+    private final TimeoutTransportCallback<StreamResponse> _callback;
 
-    ChannelPoolGetCallback(AsyncPool<Channel> pool, Request request, TimeoutTransportCallbackConnectionAware<StreamResponse, Channel> callback)
+    ChannelPoolGetCallback(AsyncPool<Channel> pool, Request request, TimeoutTransportCallback<StreamResponse> callback)
     {
       _pool = pool;
       _request = request;
@@ -169,8 +168,6 @@ import java.util.concurrent.TimeoutException;
     @Override
     public void onSuccess(final Channel channel)
     {
-      _callback.setConnection(channel);
-
       // This handler ensures the channel is returned to the pool at the end of the
       // Netty pipeline.
       channel.attr(ChannelPoolStreamHandler.CHANNEL_POOL_ATTR_KEY).set(_pool);
@@ -231,16 +228,43 @@ import java.util.concurrent.TimeoutException;
         private void finishShutdown()
         {
           _state.set(HttpNettyStreamClient.State.REQUESTS_STOPPING);
-          callbacks.forEach(callback -> errorResponse(callback, new TimeoutException("Operation did not complete before shutdown")));
-          callbacks.forEach(TimeoutTransportCallbackConnectionAware::close);
+          // Timeout any waiters which haven't received a Channel yet
+          for (Callback<Channel> callback : _channelPoolManager.cancelWaiters())
+          {
+            callback.onError(new TimeoutException("Operation did not complete before shutdown"));
+          }
+
+          // Timeout any requests still pending response
+          for (Channel c : _allChannels)
+          {
+            TransportCallback<StreamResponse> callback =
+                c.attr(RAPStreamResponseHandler.CALLBACK_ATTR_KEY).getAndRemove();
+            if (callback != null)
+            {
+              errorResponse(callback, new TimeoutException("Operation did not complete before shutdown"));
+            }
+          }
 
           // Close all active and idle Channels
-          new TimeoutRunnable(scheduler, deadline - System.currentTimeMillis(), TimeUnit.MILLISECONDS, () ->
+          final TimeoutRunnable afterClose =
+              new TimeoutRunnable(scheduler, deadline - System.currentTimeMillis(), TimeUnit.MILLISECONDS, () -> {
+                _state.set(State.SHUTDOWN);
+                LOG.info("Shutdown complete");
+                callback.onSuccess(None.none());
+              }, "Timed out waiting for channels to close, continuing shutdown");
+          _allChannels.close().addListener(new ChannelGroupFutureListener()
           {
-            _state.set(State.SHUTDOWN);
-            LOG.info("Shutdown complete");
-            callback.onSuccess(None.none());
-          }, "Timed out waiting for channels to close, continuing shutdown").run();
+            @Override
+            public void operationComplete(ChannelGroupFuture channelGroupFuture)
+                throws Exception
+            {
+              if (!channelGroupFuture.isSuccess())
+              {
+                LOG.warn("Failed to close some connections, ignoring");
+              }
+              afterClose.run();
+            }
+          });
         }
 
         @Override

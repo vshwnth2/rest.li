@@ -125,9 +125,8 @@ public class TestHttpNettyClient
   {
     TestServer testServer = new TestServer();
 
-    HttpClientBuilder clientBuilder = new HttpClientBuilder(_eventLoop, _scheduler);
-    clientBuilder.setRequestTimeout(500).setIdleTimeout(10000);
-    HttpNettyClient client = clientBuilder.setShutdownTimeout(500).buildRestClient();
+    HttpNettyClient client = new HttpClientBuilder(_eventLoop, _scheduler).setRequestTimeout(500).setIdleTimeout(10000)
+      .setShutdownTimeout(500).buildRestClient();
 
     RestRequest r = new RestRequestBuilder(testServer.getNoResponseURI()).build();
     FutureCallback<RestResponse> cb = new FutureCallback<RestResponse>();

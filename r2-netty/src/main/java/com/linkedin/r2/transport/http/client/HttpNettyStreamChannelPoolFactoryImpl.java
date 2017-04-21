@@ -5,7 +5,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import javax.net.ssl.SSLContext;
@@ -39,7 +38,8 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
                                         int maxHeaderSize,
                                         int maxChunkSize,
                                         long maxResponseSize,
-                                        EventLoopGroup eventLoopGroup)
+                                        EventLoopGroup eventLoopGroup,
+                                        ChannelGroup channelGroup)
   {
     ChannelInitializer<NioSocketChannel> initializer =
       new RAPClientPipelineInitializer(sslContext, sslParameters, maxHeaderSize, maxChunkSize, maxResponseSize);
@@ -55,7 +55,7 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
     _strategy = strategy;
     _minPoolSize = minPoolSize;
     _tcpNoDelay = tcpNoDelay;
-    _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
+    _allChannels = channelGroup;
     _scheduler = scheduler;
     _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
   }

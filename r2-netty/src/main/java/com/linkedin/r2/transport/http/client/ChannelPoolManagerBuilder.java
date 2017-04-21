@@ -16,6 +16,7 @@
 
 package com.linkedin.r2.transport.http.client;
 
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.internal.ObjectUtil;
 
@@ -181,6 +182,8 @@ class ChannelPoolManagerBuilder
 
   public ChannelPoolManager buildRest()
   {
+    DefaultChannelGroup channelGroup = new DefaultChannelGroup("R2 client channels", _eventLoopGroup.next());
+
     return new ChannelPoolManager(
       new HttpNettyChannelPoolFactoryImpl(
         _maxPoolSize,
@@ -195,12 +198,16 @@ class ChannelPoolManagerBuilder
         _maxChunkSize,
         (int) _maxResponseSize,
         _scheduler,
-        _maxConcurrentConnectionInitializations),
-      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME);
+        _maxConcurrentConnectionInitializations,
+        channelGroup),
+      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME,
+      channelGroup);
   }
 
   public ChannelPoolManager buildStream()
   {
+    DefaultChannelGroup channelGroup = new DefaultChannelGroup("R2 client channels", _eventLoopGroup.next());
+
     return new ChannelPoolManager(
       new HttpNettyStreamChannelPoolFactoryImpl(
         _maxPoolSize,
@@ -216,12 +223,16 @@ class ChannelPoolManagerBuilder
         _maxHeaderSize,
         _maxChunkSize,
         _maxResponseSize,
-        _eventLoopGroup),
-      "R2 Stream Http1 " + ChannelPoolManager.BASE_NAME);
+        _eventLoopGroup,
+        channelGroup),
+      "R2 Stream Http1 " + ChannelPoolManager.BASE_NAME,
+      channelGroup);
   }
 
   public ChannelPoolManager buildHttp2Stream()
   {
+    DefaultChannelGroup channelGroup = new DefaultChannelGroup("R2 client channels", _eventLoopGroup.next());
+
     return new ChannelPoolManager(
       new Http2NettyStreamChannelPoolFactory(
         _idleTimeout,
@@ -234,7 +245,9 @@ class ChannelPoolManagerBuilder
         _maxHeaderSize,
         _maxChunkSize,
         _maxResponseSize,
-        _eventLoopGroup),
-      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME);
+        _eventLoopGroup,
+        channelGroup),
+      "R2 Stream Http2" + ChannelPoolManager.BASE_NAME,
+      channelGroup);
   }
 }

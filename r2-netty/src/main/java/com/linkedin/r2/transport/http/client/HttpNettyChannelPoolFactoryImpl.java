@@ -5,7 +5,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -33,10 +32,10 @@ class HttpNettyChannelPoolFactoryImpl implements ChannelPoolFactory
 
   HttpNettyChannelPoolFactoryImpl(int maxPoolSize, long idleTimeout, int maxPoolWaiterSize, AsyncPoolImpl.Strategy strategy,
                                   int minPoolSize, EventLoopGroup eventLoopGroup, SSLContext sslContext, SSLParameters sslParameters, int maxHeaderSize,
-                                  int maxChunkSize, int maxResponseSize, ScheduledExecutorService scheduler, int maxConcurrentConnectionInitializations)
+                                  int maxChunkSize, int maxResponseSize, ScheduledExecutorService scheduler, int maxConcurrentConnectionInitializations, ChannelGroup allChannels)
   {
 
-    _allChannels = new DefaultChannelGroup("R2 client channels", eventLoopGroup.next());
+    _allChannels = allChannels;
     _scheduler = scheduler;
     _maxConcurrentConnectionInitializations = maxConcurrentConnectionInitializations;
     Bootstrap bootstrap = new Bootstrap().group(eventLoopGroup)

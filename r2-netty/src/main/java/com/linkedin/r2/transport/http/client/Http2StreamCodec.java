@@ -49,7 +49,6 @@ import io.netty.util.concurrent.PromiseCombiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.AbstractMap;
 import java.util.Collections;
 
 import static io.netty.handler.codec.http2.Http2CodecUtil.getEmbeddedHttp2Exception;
@@ -144,12 +143,6 @@ class Http2StreamCodec extends Http2ConnectionHandler
     Http2Connection.PropertyKey handleKey =
         ctx.channel().attr(Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY).get();
     connection().stream(streamId).setProperty(handleKey, handle);
-
-    if (callback instanceof Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2)
-    {
-      Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2 callbackConnectionAware = (Http2NettyStreamClient.TimeoutTransportCallbackConnectionAwareHttp2) callback;
-      callbackConnectionAware.setConnection(new AbstractMap.SimpleImmutableEntry<>(ctx.channel(), connection().stream(streamId)));
-    }
   }
 
   @Override

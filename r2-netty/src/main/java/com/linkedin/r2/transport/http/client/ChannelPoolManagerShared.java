@@ -19,7 +19,7 @@ public class ChannelPoolManagerShared extends ChannelPoolManager
 
   public ChannelPoolManagerShared(ChannelPoolFactory channelPoolFactory)
   {
-    super(channelPoolFactory);
+    super(channelPoolFactory, null);
   }
 
   @Override
