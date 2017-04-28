@@ -18,7 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
-class HttpNettyChannelPoolFactoryImpl implements ChannelPoolFactory
+class HttpNettyChannelPoolFactory implements ChannelPoolFactory
 {
   private final Bootstrap _bootstrap;
   private final int _maxPoolSize;
@@ -30,7 +30,7 @@ class HttpNettyChannelPoolFactoryImpl implements ChannelPoolFactory
   private final ScheduledExecutorService _scheduler;
   private final int _maxConcurrentConnectionInitializations;
 
-  HttpNettyChannelPoolFactoryImpl(int maxPoolSize, long idleTimeout, int maxPoolWaiterSize, AsyncPoolImpl.Strategy strategy,
+  HttpNettyChannelPoolFactory(int maxPoolSize, long idleTimeout, int maxPoolWaiterSize, AsyncPoolImpl.Strategy strategy,
                                   int minPoolSize, EventLoopGroup eventLoopGroup, SSLContext sslContext, SSLParameters sslParameters, int maxHeaderSize,
                                   int maxChunkSize, int maxResponseSize, ScheduledExecutorService scheduler, int maxConcurrentConnectionInitializations, ChannelGroup allChannels)
   {

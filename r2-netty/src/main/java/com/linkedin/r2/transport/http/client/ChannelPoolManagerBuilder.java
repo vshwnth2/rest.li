@@ -19,10 +19,9 @@ package com.linkedin.r2.transport.http.client;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.internal.ObjectUtil;
-
+import java.util.concurrent.ScheduledExecutorService;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import java.util.concurrent.ScheduledExecutorService;
 
 
 /**
@@ -78,8 +77,15 @@ class ChannelPoolManagerBuilder
     return this;
   }
 
-  public ChannelPoolManagerBuilder setGracefulShutdownTimeout(int gracefulShutdownTimeout)
-  {
+  /**
+   * @param gracefulShutdownTimeout Graceful shutdown timeout dictates the amount of time an HTTP/2 connection waits
+   *                                for existing streams to complete before shutting down the connection, by either
+   *                                connection error or intentional connection close.
+   *                                The suggested value is about timeout because there is no point to wait any further
+   *                                if the request has already timed out.
+   *                                The default Netty value is 30s.
+   */
+  public ChannelPoolManagerBuilder setGracefulShutdownTimeout(int gracefulShutdownTimeout) {
     ObjectUtil.checkPositiveOrZero(gracefulShutdownTimeout, "gracefulShutdownTimeout");
     _gracefulShutdownTimeout = gracefulShutdownTimeout;
     return this;
@@ -185,7 +191,7 @@ class ChannelPoolManagerBuilder
     DefaultChannelGroup channelGroup = new DefaultChannelGroup("R2 client channels", _eventLoopGroup.next());
 
     return new ChannelPoolManager(
-      new HttpNettyChannelPoolFactoryImpl(
+      new HttpNettyChannelPoolFactory(
         _maxPoolSize,
         _idleTimeout,
         _poolWaiterSize,
@@ -209,7 +215,7 @@ class ChannelPoolManagerBuilder
     DefaultChannelGroup channelGroup = new DefaultChannelGroup("R2 client channels", _eventLoopGroup.next());
 
     return new ChannelPoolManager(
-      new HttpNettyStreamChannelPoolFactoryImpl(
+      new HttpNettyStreamChannelPoolFactory(
         _maxPoolSize,
         _idleTimeout,
         _poolWaiterSize,

@@ -195,8 +195,8 @@ abstract class AbstractNettyStreamClient implements TransportClient
     // of the code access to the unwrapped callback.  This ensures two things:
     // 1. The user callback will always be invoked, since the Timeout will eventually expire
     // 2. The user callback is never invoked more than once
-    final TimeoutTransportCallbackImpl<StreamResponse> timeoutCallback =
-        new TimeoutTransportCallbackImpl<StreamResponse>(_scheduler,
+    final TimeoutTransportCallback<StreamResponse> timeoutCallback =
+        new TimeoutTransportCallback<StreamResponse>(_scheduler,
             _requestTimeout,
             TimeUnit.MILLISECONDS,
             executionCallback,

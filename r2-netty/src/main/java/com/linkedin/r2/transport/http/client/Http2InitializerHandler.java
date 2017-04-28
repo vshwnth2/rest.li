@@ -74,10 +74,6 @@ class Http2InitializerHandler extends ChannelOutboundHandlerAdapter
     _maxHeaderSize = maxHeaderSize;
     _maxChunkSize = maxChunkSize;
     _maxResponseSize = maxResponseSize;
-    // Graceful shutdown timeout dictates the amount of time an HTTP/2 connection waits for existing streams
-    // to complete before shutting down the connection, by either connection error or intentional connection close.
-    // Sets graceful shutdown timeout to the same value as streaming timeout because there is no point to wait
-    // any further if the request has already timed out.
     _gracefulShutdownTimeout = gracefulShutdownTimeout;
     _scheduler = scheduler;
     _connection = connection;

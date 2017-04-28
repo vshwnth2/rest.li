@@ -48,9 +48,6 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2LifecycleManager;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.codec.http2.Http2Stream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedList;
@@ -59,6 +56,8 @@ import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -143,9 +142,9 @@ public class Http2FrameListener extends Http2EventAdapter
     }
 
     // Gets async pool handle from stream properties
-    Http2Connection.PropertyKey handleKey =
-        ctx.channel().attr(Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY).get();
-    TimeoutAsyncPoolHandle<?> handle = _connection.stream(streamId).removeProperty(handleKey);
+    TimeoutAsyncPoolHandle<?> handle =
+        PipelineHttp2PropertyUtil.remove(ctx, _connection, streamId, Http2ClientPipelineInitializer.CHANNEL_POOL_HANDLE_ATTR_KEY);
+
     if (handle == null)
     {
       _lifecycleManager.onError(ctx, Http2Exception.connectionError(Http2Error.PROTOCOL_ERROR,
@@ -161,8 +160,8 @@ public class Http2FrameListener extends Http2EventAdapter
     }
     else
     {
-      Http2Connection.PropertyKey streamingTimeoutPropertyKey = ctx.channel().attr(Http2ClientPipelineInitializer.REQUEST_TIMEOUT_MS_ATTR_KEY).get();
-      long streamingTimeout = _connection.stream(streamId).getProperty(streamingTimeoutPropertyKey);
+      long streamingTimeout =
+          PipelineHttp2PropertyUtil.get(ctx, _connection, streamId, Http2ClientPipelineInitializer.REQUEST_TIMEOUT_MS_ATTR_KEY);
       // Associate an entity stream writer to the HTTP/2 stream
       final TimeoutBufferedWriter writer = new TimeoutBufferedWriter(ctx, streamId, _maxContentLength, handle, streamingTimeout);
       if (_connection.stream(streamId).setProperty(_writerKey, writer) != null)
@@ -178,9 +177,8 @@ public class Http2FrameListener extends Http2EventAdapter
     }
 
     // Gets callback from stream properties
-    Http2Connection.PropertyKey callbackKey =
-        ctx.channel().attr(Http2ClientPipelineInitializer.CALLBACK_ATTR_KEY).get();
-    TransportCallback<?> callback = _connection.stream(streamId).removeProperty(callbackKey);
+    TransportCallback<?> callback =
+        PipelineHttp2PropertyUtil.remove(ctx, _connection, streamId, Http2ClientPipelineInitializer.CALLBACK_ATTR_KEY);
     if (callback != null)
     {
       ctx.fireChannelRead(new ResponseWithCallback<Response, TransportCallback<?>>(response, callback));

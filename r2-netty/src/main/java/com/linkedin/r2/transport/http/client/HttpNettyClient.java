@@ -253,7 +253,7 @@ import java.util.concurrent.atomic.AtomicReference;
     // 1. The user callback will always be invoked, since the Timeout will eventually expire
     // 2. The user callback is never invoked more than once
     TimeoutTransportCallback<RestResponse> timeoutCallback =
-        new TimeoutTransportCallbackImpl<>(_scheduler,
+        new TimeoutTransportCallback<>(_scheduler,
             _requestTimeout,
             TimeUnit.MILLISECONDS,
             executionCallback,

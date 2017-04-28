@@ -64,10 +64,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A factory for HttpNettyClient instances.
- * <p>
+ *
  * All clients created by the factory will share the same resources, in particular the
  * {@link io.netty.channel.nio.NioEventLoopGroup} and {@link ScheduledExecutorService}.
- * <p>
+ *
  * In order to shutdown cleanly, all clients issued by the factory should be shutdown via
  * {@link TransportClient#shutdown(com.linkedin.common.callback.Callback)} and the factory
  * itself should be shut down via one of the following two methods:
@@ -77,7 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link #shutdown(com.linkedin.common.callback.Callback, long, java.util.concurrent.TimeUnit)}
  * </li>
  * </ul>
- * <p>
+ *
  * See the method descriptions for more details. Note that factory shutdown and shutdown
  * of the clients can be initiated in any order.
  *

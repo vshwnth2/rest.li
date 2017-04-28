@@ -12,7 +12,7 @@ import javax.net.ssl.SSLParameters;
 import java.net.SocketAddress;
 import java.util.concurrent.ScheduledExecutorService;
 
-class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
+class HttpNettyStreamChannelPoolFactory implements ChannelPoolFactory
 {
   private final Bootstrap _bootstrap;
   private final int _maxPoolSize;
@@ -25,7 +25,7 @@ class HttpNettyStreamChannelPoolFactoryImpl implements ChannelPoolFactory
   private final ScheduledExecutorService _scheduler;
   private final int _maxConcurrentConnectionInitializations;
 
-  HttpNettyStreamChannelPoolFactoryImpl(int maxPoolSize,
+  HttpNettyStreamChannelPoolFactory(int maxPoolSize,
                                         long idleTimeout,
                                         int maxPoolWaiterSize,
                                         AsyncPoolImpl.Strategy strategy,

@@ -6,11 +6,10 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.net.SocketAddress;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 
 class Http2NettyStreamChannelPoolFactory implements ChannelPoolFactory
 {
@@ -37,16 +36,12 @@ class Http2NettyStreamChannelPoolFactory implements ChannelPoolFactory
   {
     ChannelInitializer<NioSocketChannel> initializer = new Http2ClientPipelineInitializer(
       sslContext, sslParameters, scheduler, maxHeaderSize, maxChunkSize, maxResponseSize, gracefulShutdownTimeout);
-    Bootstrap bootstrap = new Bootstrap().group(eventLoopGroup)
-      .channel(NioSocketChannel.class)
-      .handler(initializer);
 
-    _bootstrap = bootstrap;
+    _bootstrap = new Bootstrap().group(eventLoopGroup).channel(NioSocketChannel.class).handler(initializer);
     _idleTimeout = idleTimeout;
     _maxPoolWaiterSize = maxPoolWaiterSize;
     _tcpNoDelay = tcpNoDelay;
     _allChannels = channelGroup;
-
     _scheduler = scheduler;
   }
 
