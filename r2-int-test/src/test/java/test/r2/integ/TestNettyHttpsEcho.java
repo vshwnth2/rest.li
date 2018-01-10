@@ -29,7 +29,6 @@ import com.linkedin.r2.transport.common.Server;
 import com.linkedin.r2.transport.common.bridge.server.TransportDispatcher;
 import com.linkedin.r2.transport.common.bridge.server.TransportDispatcherBuilder;
 import com.linkedin.r2.transport.http.server.HttpNettyServerBuilder;
-import com.linkedin.r2.transport.http.server.HttpNettyServerFactory;
 import java.util.concurrent.TimeUnit;
 import org.testng.Assert;
 import org.testng.annotations.Factory;
@@ -68,8 +67,7 @@ public class TestNettyHttpsEcho extends AbstractTestHttps
   {
     final TransportDispatcher dispatcher = getTransportDispatcher();
 
-    return new HttpNettyServerFactory(filters)
-        .createServer(port, dispatcher);
+    return new HttpNettyServerBuilder().filters(filters).port(port).transportDispatcher(dispatcher).build();
   }
 
   protected Server createHttpsServer(FilterChain filters, int port) throws Exception
