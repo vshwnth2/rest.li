@@ -20,6 +20,7 @@ import com.linkedin.r2.filter.FilterChain;
 import com.linkedin.r2.filter.R2Constants;
 import com.linkedin.r2.filter.transport.FilterChainDispatcher;
 import com.linkedin.r2.transport.common.bridge.server.TransportDispatcher;
+import com.linkedin.util.ArgumentUtil;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 
@@ -34,6 +35,7 @@ import javax.net.ssl.SSLParameters;
 public class HttpNettyServerBuilder
 {
   public static final int DEFAULT_NETTY_HTTP_SERVER_PORT = 8080;
+  public static final int DEFAULT_THREAD_POOL_SIZE = 256;
 
   // The following fields are required.
   private TransportDispatcher _transportDispatcher = null;
@@ -41,7 +43,7 @@ public class HttpNettyServerBuilder
 
   // The following fields have default values.
   private int _port = DEFAULT_NETTY_HTTP_SERVER_PORT;
-  private int _threadPoolSize = HttpNettyServerFactory.DEFAULT_THREAD_POOL_SIZE;
+  private int _threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
   private boolean _restOverStream = R2Constants.DEFAULT_REST_OVER_STREAM;
 
   // The following fields are optional.
@@ -101,13 +103,7 @@ public class HttpNettyServerBuilder
   private void validateParameters()
   {
     final String errorMsg = " is required by HttpNettyServerBuilder, however it was not set.";
-    if (_transportDispatcher == null)
-    {
-      throw new NullPointerException("transportDispatcher" + errorMsg);
-    }
-    if (_filters == null)
-    {
-      throw new NullPointerException("filters" + errorMsg);
-    }
+    ArgumentUtil.notNull(_transportDispatcher, "Parameter 'transportDispatcher'" + errorMsg);
+    ArgumentUtil.notNull(_filters, "Parameter 'filters'" + errorMsg);
   }
 }
