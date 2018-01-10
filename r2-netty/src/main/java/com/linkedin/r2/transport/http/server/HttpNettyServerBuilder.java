@@ -29,16 +29,18 @@ import javax.net.ssl.SSLParameters;
  *  {@link HttpNettyServerBuilder#_transportDispatcher} and {@link HttpNettyServerBuilder#_filters}.
  *
  *  If the port is not set by calling {@link HttpNettyServerBuilder#_port}, a default value
- *  will be used: {@link R2Constants#DEFAULT_NETTY_HTTP_SERVER_PORT}.
+ *  will be used: {@link #DEFAULT_NETTY_HTTP_SERVER_PORT}.
  */
 public class HttpNettyServerBuilder
 {
+  public static final int DEFAULT_NETTY_HTTP_SERVER_PORT = 8080;
+
   // The following fields are required.
   private TransportDispatcher _transportDispatcher = null;
   private FilterChain _filters = null;
 
   // The following fields have default values.
-  private int _port = R2Constants.DEFAULT_NETTY_HTTP_SERVER_PORT;
+  private int _port = DEFAULT_NETTY_HTTP_SERVER_PORT;
   private int _threadPoolSize = HttpNettyServerFactory.DEFAULT_THREAD_POOL_SIZE;
   private boolean _restOverStream = R2Constants.DEFAULT_REST_OVER_STREAM;
 
