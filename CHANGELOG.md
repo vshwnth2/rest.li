@@ -13,6 +13,7 @@ When updating the changelog, remember to be very clear about what behavior has c
 and what APIs have changed, if applicable.
 
 ## [Unreleased]
+- Loosen `ReadOnly`/`CreateOnly` validation when setting array-descendant fields in a patch request.
 - Fix a bug in `FileFormatDataSchemaParser` and remove `isExtensionEntry` method call to simplify the logic.
 - Update ExtensionSchemaValidationCmdLineApp with more validations.
 
