@@ -295,7 +295,6 @@ public class RestLiDataValidator
     {
       super.validate(context);
       DataElement element = context.dataElement();
-      System.out.println("Validate: " + element);
       if (_readOnlyRestrictedPredicate.evaluate(element) && !grantArrayDescendantException(element))
       {
         context.addResult(new Message(element.path(), "ReadOnly field present in a %s request", _resourceMethod.toString()));
